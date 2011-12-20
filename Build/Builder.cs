@@ -10,48 +10,50 @@ namespace Build
 {
 	class Builder
 	{
+		List<Project> projectsToBuild;
+		List<string> builtAssemblies, failedAssemblies;
+
 		internal Builder()
 		{
 		}
 
 		internal void Build(string projectPath)
 		{
-			var msBuildPath = GetMSBuildPath();
 			var targetProjectFiles = GetProjectFiles(projectPath);
-			var projectReferences = GetProjectReferences(targetProjectFiles);
 
-			var projectsToBuild = targetProjectFiles.Select(project => GetAssemblyName(project)).ToList<string>();
-			var builtProjects = new List<string>();
-			var failedProjects = new List<string>();
+			builtAssemblies = new List<string>();
+			failedAssemblies = new List<string>();
+			projectsToBuild = targetProjectFiles.Select(projectFile => new Project(projectFile)).ToList<Project>();
 
-			while (projectsToBuild.Count > 0 && failedProjects.Count < targetProjectFiles.Length - builtProjects.Count)
+			while (projectsToBuild.Count > 0)
 			{
 				try
 				{
-					var projectToBuild = GetNextProjectToBuild(projectReferences, builtProjects);
-					string buildResult = BuildAssemblyAndReturnStdOut(msBuildPath, projectToBuild);
+					var project = GetNextProjectToBuild();
+					string buildResult = project.BuildAndReturnStdOut(MSBuildPath);
 
-					string assemblyName = GetAssemblyName(projectToBuild);
+					string assemblyName = project.AssemblyName;
 					if (DetermineSuccessFromBuildStdOut(buildResult))
 					{
-						builtProjects.Add(assemblyName);
+						builtAssemblies.Add(assemblyName);
 					}
 					else
 					{
-						failedProjects.Add(assemblyName);
+						failedAssemblies.Add(assemblyName);
 					}
-					projectsToBuild.Remove(assemblyName);
-					projectReferences.Remove(projectToBuild);
+					projectsToBuild.Remove(project);
 				}
 				catch (InvalidOperationException)
 				{
-					failedProjects.AddRange(projectsToBuild);
+					failedAssemblies.AddRange(projectsToBuild.Select(project => project.AssemblyName));
 					projectsToBuild.Clear();
 				}
 			}
 
-			DisplayOutcome(builtProjects, failedProjects);
+			DisplayOutcome(builtAssemblies, failedAssemblies);
 #if DEBUG
+			Console.WriteLine();
+			Console.Write("Press any key to exit...");
 			Console.ReadLine();
 #endif
 		}
@@ -86,20 +88,28 @@ namespace Build
 			return false;
 		}
 
-		string GetMSBuildPath()
+		string MSBuildPath
 		{
-			string[] dotNetFrameworkDirectories = Directory.GetDirectories(@"C:\Windows\Microsoft.NET\Framework");
-			string dotNet4Directory = dotNetFrameworkDirectories.FirstOrDefault(path => path.Contains("v4.0"));
-			string msbuildPath = Path.Combine(dotNet4Directory, "MSBuild.exe");
-			if (File.Exists(msbuildPath))
+			get
 			{
-				return msbuildPath;
-			}
-			else
-			{
-				throw new FileNotFoundException("MSBuild.exe not found", msbuildPath);
+				if (fMSBuildPath == null)
+				{
+					string[] dotNetFrameworkDirectories = Directory.GetDirectories(@"C:\Windows\Microsoft.NET\Framework");
+					string dotNet4Directory = dotNetFrameworkDirectories.FirstOrDefault(path => path.Contains("v4.0"));
+					string msbuildPath = Path.Combine(dotNet4Directory, "MSBuild.exe");
+					if (File.Exists(msbuildPath))
+					{
+						fMSBuildPath = msbuildPath;
+					}
+					else
+					{
+						throw new FileNotFoundException("MSBuild.exe not found", msbuildPath);
+					}
+				}
+				return fMSBuildPath;
 			}
 		}
+		string fMSBuildPath;
 
 		string[] GetProjectFiles(string projectPath)
 		{
@@ -114,98 +124,35 @@ namespace Build
 			}
 		}
 
-		Dictionary<string, string[]> GetProjectReferences(string[] projectFiles)
+		Project GetNextProjectToBuild()
 		{
-			var projectReferences = new Dictionary<string, string[]>();
-			foreach (string projectFile in projectFiles)
-			{
-				projectReferences.Add(projectFile, GetReferencesForProject(projectFile).ToArray());
-			}
-
-			return projectReferences;
-		}
-
-		IEnumerable<string> GetReferencesForProject(string projectFile)
-		{
-			string[] fileContents = File.ReadAllLines(projectFile);
-			foreach (string line in fileContents)
-			{
-				int indexOfReferencePrefix = line.IndexOf(assemblyReferencePrefix, StringComparison.OrdinalIgnoreCase);
-				if (indexOfReferencePrefix >= 0)
-				{
-					int indexOfReference = indexOfReferencePrefix + assemblyReferencePrefix.Length;
-					string lineStartingAtReference = line.Substring(indexOfReference);
-					string reference = lineStartingAtReference.Split(',', '\"')[0];
-					if (!IsSystemReference(reference))
-					{
-						yield return reference;
-					}
-				}
-			}
-		}
-
-		const string assemblyReferencePrefix = "Reference Include=\"";
-
-		bool IsSystemReference(string reference)
-		{
-			return systemAssemblyPrefixes.Any(systemRef => reference.StartsWith(systemRef, StringComparison.OrdinalIgnoreCase));
-		}
-
-		readonly string[] systemAssemblyPrefixes = new string[] { "System", "Microsoft", "Windows", "Presentation", "nunit" };
-
-		string BuildAssemblyAndReturnStdOut(string msBuildPath, string projectFile)
-		{
-			string assemblyName = GetAssemblyName(projectFile);
-			Console.WriteLine("Building project {0}", assemblyName);
-			
-			Process process = new Process();
-			process.StartInfo = new ProcessStartInfo(msBuildPath, projectFile);
-			process.StartInfo.CreateNoWindow = false;
-			process.StartInfo.UseShellExecute = false;
-			process.StartInfo.RedirectStandardOutput = true;
-			process.Start();
-			process.WaitForExit();
-			return process.StandardOutput.ReadToEnd();
-		}
-
-		string GetAssemblyName(string projectFile)
-		{
-			string[] projectFileContents = File.ReadAllLines(projectFile);
-			string assemblyNameIdentifier = "<AssemblyName>";
-			string assemblyNameLine = projectFileContents.First(line => line.Contains(assemblyNameIdentifier));
-			int indexOfAssemblyName = assemblyNameLine.IndexOf(assemblyNameIdentifier) + assemblyNameIdentifier.Length;
-			int indexOfEndAssembly = assemblyNameLine.IndexOf('<', indexOfAssemblyName);
-
-			return assemblyNameLine.Substring(indexOfAssemblyName, indexOfEndAssembly - indexOfAssemblyName);
-		}
-
-		string GetNextProjectToBuild(Dictionary<string, string[]> references, List<string> builtProjects)
-		{
-			var projectReferenceSet = references.First(referenceSet => referenceSet.Value.Length == 0
-				|| referenceSet.Value.All(reference => builtProjects.Contains(reference)));
-			return projectReferenceSet.Key;
+			var projectToBuild = projectsToBuild.First(project => project.NonSystemReferences.Count == 0
+				|| project.NonSystemReferences.All(reference => builtAssemblies.Contains(reference)));
+			return projectToBuild;
 		}
 
 		void DisplayOutcome(List<string> builtProjects, List<string> failedProjects)
 		{
-			if (builtProjects.Count > 0)
-			{
-				Console.WriteLine("Process completed.");
-				Console.WriteLine();
-				Console.WriteLine("The following projects were successfully built:");
-				builtProjects.ForEach(project => Console.WriteLine("\t{0}", project));
-			}
-
-			if (failedProjects.Count > 0)
-			{
-				Console.WriteLine();
-				Console.WriteLine("The following projects could not be built:");
-				failedProjects.ForEach(project => Console.WriteLine("\t{0}", project));
-			}
-
 			if (builtProjects.Count == 0 && failedProjects.Count == 0)
 			{
 				Console.WriteLine("No projects targeted to build.");
+			}
+			else
+			{
+				if (builtProjects.Count > 0)
+				{
+					Console.WriteLine("Process completed.");
+					Console.WriteLine();
+					Console.WriteLine("The following projects were successfully built:");
+					builtProjects.ForEach(project => Console.WriteLine("\t{0}", project));
+				}
+
+				if (failedProjects.Count > 0)
+				{
+					Console.WriteLine();
+					Console.WriteLine("The following projects could not be built:");
+					failedProjects.ForEach(project => Console.WriteLine("\t{0}", project));
+				}
 			}
 		}
 	}

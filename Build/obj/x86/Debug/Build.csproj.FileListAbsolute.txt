@@ -1,0 +1,7 @@
+C:\cygwin\home\dave.east\projects\build\Build\bin\Debug\Build.exe
+C:\cygwin\home\dave.east\projects\build\Build\bin\Debug\Build.pdb
+C:\cygwin\home\dave.east\projects\build\Build\obj\x86\Debug\ResolveAssemblyReference.cache
+C:\cygwin\home\dave.east\projects\build\Build\obj\x86\Debug\Build.exe
+C:\cygwin\home\dave.east\projects\build\Build\obj\x86\Debug\Build.pdb
+C:\cygwin\home\dave.east\projects\build\Build\obj\x86\Debug\Decl\Build.exe
+C:\cygwin\home\dave.east\projects\build\Build\obj\x86\Debug\Decl\Build.pdb
