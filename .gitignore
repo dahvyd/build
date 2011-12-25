@@ -36,3 +36,7 @@ _ReSharper*/
 *.dll.VisualState.xml
 *.VisualState.xml
 *.exe.manifest
+*/bin/*
+*/obj/*
+D
+*obj/*
