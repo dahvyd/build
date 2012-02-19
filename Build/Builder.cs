@@ -139,9 +139,9 @@ namespace Build
 			}
 			else
 			{
-				if (builtProjects.Count > 0)
+				Console.WriteLine("Process completed.");
+				if (builtProjects.Count > 0 && failedProjects.Count > 0)
 				{
-					Console.WriteLine("Process completed.");
 					Console.WriteLine();
 					Console.WriteLine("The following projects were successfully built:");
 					builtProjects.ForEach(project => Console.WriteLine("\t{0}", project));
