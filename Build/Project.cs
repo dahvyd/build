@@ -9,21 +9,21 @@ namespace Build
 {
 	public class Project
 	{
-		readonly string projectFilePath;
-		const string assemblyNameIdentifierInProjectFile = "<AssemblyName>";
-		const string assemblyReferencePrefixInProjectFile = "Reference Include=\"";
-		readonly static string[] systemAssemblyPrefixes = new string[] { "System", "Microsoft", "Windows", "Presentation", "nunit" };
-
 		public Project(string projectFilePath)
 		{
 			this.projectFilePath = projectFilePath;
 		}
 
+		readonly string projectFilePath;
+		const string assemblyNameIdentifierInProjectFile = "<AssemblyName>";
+		const string assemblyReferencePrefixInProjectFile = "Reference Include=\"";
+		readonly static string[] systemAssemblyPrefixes = new string[] { "System", "Microsoft", "Windows", "Presentation", "nunit" };
+
 		public string BuildAndReturnStdOut(string msBuildPath)
 		{
 			Console.WriteLine("Building project {0}", AssemblyName);
 
-			Process process = new Process();
+			var process = new Process();
 			process.StartInfo = new ProcessStartInfo(msBuildPath, projectFilePath);
 			process.StartInfo.CreateNoWindow = false;
 			process.StartInfo.UseShellExecute = false;
@@ -35,21 +35,19 @@ namespace Build
 
 		internal string AssemblyName
 		{
-			get
-			{
-				if (fAssemblyName == null)
-				{
-					string[] projectFileContents = File.ReadAllLines(projectFilePath);
-					string assemblyNameLine = projectFileContents.First(line => line.Contains(assemblyNameIdentifierInProjectFile));
-					int indexOfAssemblyName = assemblyNameLine.IndexOf(assemblyNameIdentifierInProjectFile) + assemblyNameIdentifierInProjectFile.Length;
-					int indexOfEndAssembly = assemblyNameLine.IndexOf('<', indexOfAssemblyName);
-
-					fAssemblyName = assemblyNameLine.Substring(indexOfAssemblyName, indexOfEndAssembly - indexOfAssemblyName);
-				}
-				return fAssemblyName;
-			}
+			get { return assemblyName ?? (assemblyName = BuildAssemblyName()); }
 		}
-		string fAssemblyName;
+		string assemblyName;
+		
+		string BuildAssemblyName()
+		{
+			var projectFileContents = File.ReadAllLines(projectFilePath);
+			string assemblyNameLine = projectFileContents.First(line => line.Contains(assemblyNameIdentifierInProjectFile));
+			int indexOfAssemblyName = assemblyNameLine.IndexOf(assemblyNameIdentifierInProjectFile) + assemblyNameIdentifierInProjectFile.Length;
+			int indexOfEndAssembly = assemblyNameLine.IndexOf('<', indexOfAssemblyName);
+
+			return assemblyNameLine.Substring(indexOfAssemblyName, indexOfEndAssembly - indexOfAssemblyName);
+		}
 
 		internal List<string> NonSystemReferences
 		{
