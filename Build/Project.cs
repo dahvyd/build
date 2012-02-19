@@ -29,7 +29,7 @@ namespace Build
 			process.StartInfo.UseShellExecute = false;
 			process.StartInfo.RedirectStandardOutput = true;
 			process.Start();
-			process.WaitForExit(10000);
+			process.WaitForExit(10000); // hack to get around issue with process not returning exit code correctly sometimes
 			return process.StandardOutput.ReadToEnd();
 		}
 
