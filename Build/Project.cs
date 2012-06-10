@@ -7,6 +7,7 @@ using System.Diagnostics;
 
 namespace Build
 {
+	[DebuggerDisplay("AssemblyName={AssemblyName}")]
 	public class Project
 	{
 		public Project(string projectFilePath)
@@ -67,7 +68,16 @@ namespace Build
 							string reference = lineStartingAtReference.Split(',', '\"')[0];
 							if (!IsSystemReference(reference))
 							{
-								references.Add(reference);
+								string referenceName;
+								if (Path.GetExtension(reference) == ".csproj")
+								{
+									referenceName = Path.GetFileNameWithoutExtension(reference);
+								}
+								else
+								{
+									referenceName = Path.GetFileName(reference);
+								}
+								references.Add(referenceName);
 							}
 						}
 					}
