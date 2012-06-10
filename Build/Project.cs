@@ -17,7 +17,7 @@ namespace Build
 		readonly string projectFilePath;
 		const string assemblyNameIdentifierInProjectFile = "<AssemblyName>";
 		const string assemblyReferencePrefixInProjectFile = "Reference Include=\"";
-		readonly static string[] systemAssemblyPrefixes = new string[] { "System", "Microsoft", "Windows", "Presentation", "nunit" };
+		readonly static string[] systemAssemblyPrefixes = new string[] { "System", "Microsoft", "Windows", "Presentation", "nunit", "Rhino", "Shouldly" };
 
 		public string BuildAndReturnStdOut(string msBuildPath)
 		{
