@@ -40,8 +40,9 @@ namespace Build
 					}
 					else
 					{
+						Console.WriteLine("*** Build failed ***");
 						failedAssemblies.Add(assemblyName);
-						LogBuildFailure(buildResult);
+						Log(buildResult);
 					}
 					projectsToBuild.Remove(project);
 				}
@@ -80,6 +81,8 @@ namespace Build
 						Console.WriteLine(stdout);
 						Console.Write("Press Enter to continue.");
 						Console.ReadLine();
+
+						return false;
 					}
 					else
 					{
@@ -87,6 +90,7 @@ namespace Build
 					}
 				}
 			}
+			Log("Couldn't determine build success: " + stdout);
 			return false;
 		}
 
@@ -100,10 +104,10 @@ namespace Build
 
 		const string logFilePath = "buildFailure.log";
 
-		void LogBuildFailure(string buildOutput)
+		void Log(string contents)
 		{
 			var logDetails = string.Format(@"**************************************{0}Build.exe Failure Log{0}{1}{0}**************************************{0}{2}{0}**************************************{0}",
-				Environment.NewLine, DateTime.Now.ToString(), buildOutput);
+				Environment.NewLine, DateTime.Now.ToString(), contents);
 			File.AppendAllText(logFilePath, logDetails);
 		}
 
