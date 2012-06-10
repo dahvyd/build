@@ -15,6 +15,7 @@ namespace Build
 
 		internal Builder()
 		{
+			DeleteExistingLog();
 		}
 
 		internal void Build(string projectPath)
@@ -40,6 +41,7 @@ namespace Build
 					else
 					{
 						failedAssemblies.Add(assemblyName);
+						LogBuildFailure(buildResult);
 					}
 					projectsToBuild.Remove(project);
 				}
@@ -74,7 +76,7 @@ namespace Build
 				{
 					if (errors > 0)
 					{
-						Console.WriteLine("There were {0} build errors", errors);
+						Console.WriteLine("There were {0} build errors, see log for details", errors);
 						Console.WriteLine(stdout);
 						Console.Write("Press Enter to continue.");
 						Console.ReadLine();
@@ -86,6 +88,23 @@ namespace Build
 				}
 			}
 			return false;
+		}
+
+		void DeleteExistingLog()
+		{
+			if (File.Exists(logFilePath))
+			{
+				File.Delete(logFilePath);
+			}
+		}
+
+		const string logFilePath = "buildFailure.log";
+
+		void LogBuildFailure(string buildOutput)
+		{
+			var logDetails = string.Format(@"**************************************{0}Build.exe Failure Log{0}{1}{0}**************************************{0}{2}{0}**************************************{0}",
+				Environment.NewLine, DateTime.Now.ToString(), buildOutput);
+			File.AppendAllText(logFilePath, logDetails);
 		}
 
 		string MSBuildPath
