@@ -10,7 +10,7 @@ namespace Build
 {
 	class Builder
 	{
-		List<Project> projectsToBuild;
+		List<Project> projectsToBuild, allProjects;
 		List<string> builtAssemblies, failedAssemblies;
 
 		internal Builder()
@@ -25,6 +25,7 @@ namespace Build
 			builtAssemblies = new List<string>();
 			failedAssemblies = new List<string>();
 			projectsToBuild = targetProjectFiles.Select(projectFile => new Project(projectFile)).ToList<Project>();
+			allProjects = projectsToBuild.ToList();
 
 			while (projectsToBuild.Count > 0)
 			{
@@ -149,9 +150,9 @@ namespace Build
 
 		Project GetNextProjectToBuild()
 		{
-			var projectToBuild = projectsToBuild.First(project => project.NonSystemReferences.Count == 0
-				|| project.NonSystemReferences.All(reference => builtAssemblies.Contains(reference)));
-			return projectToBuild;
+			return projectsToBuild
+				.First(project => project.References
+					.All(reference => builtAssemblies.Contains(reference) || !allProjects.Any(p => p.AssemblyName == reference)));
 		}
 
 		void DisplayOutcome(List<string> builtProjects, List<string> failedProjects)

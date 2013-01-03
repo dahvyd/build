@@ -18,7 +18,6 @@ namespace Build
 		readonly string projectFilePath;
 		const string assemblyNameIdentifierInProjectFile = "<AssemblyName>";
 		const string assemblyReferencePrefixInProjectFile = "Reference Include=\"";
-		readonly static string[] systemAssemblyPrefixes = new string[] { "System", "Microsoft", "Windows", "Presentation", "nunit", "Rhino", "Shouldly" };
 
 		public string BuildAndReturnStdOut(string msBuildPath)
 		{
@@ -50,13 +49,13 @@ namespace Build
 			return assemblyNameLine.Substring(indexOfAssemblyName, indexOfEndAssembly - indexOfAssemblyName);
 		}
 
-		internal List<string> NonSystemReferences
+		internal List<string> References
 		{
 			get
 			{
-				if (nonSystemReferences == null)
+				if (references == null)
 				{
-					List<string> references = new List<string>();
+					references = new List<string>();
 					string[] fileContents = File.ReadAllLines(projectFilePath);
 					foreach (string line in fileContents)
 					{
@@ -66,31 +65,23 @@ namespace Build
 							int indexOfReference = indexOfReferencePrefix + assemblyReferencePrefixInProjectFile.Length;
 							string lineStartingAtReference = line.Substring(indexOfReference);
 							string reference = lineStartingAtReference.Split(',', '\"')[0];
-							if (!IsSystemReference(reference))
+
+							string referenceName;
+							if (Path.GetExtension(reference) == ".csproj")
 							{
-								string referenceName;
-								if (Path.GetExtension(reference) == ".csproj")
-								{
-									referenceName = Path.GetFileNameWithoutExtension(reference);
-								}
-								else
-								{
-									referenceName = Path.GetFileName(reference);
-								}
-								references.Add(referenceName);
+								referenceName = Path.GetFileNameWithoutExtension(reference);
 							}
+							else
+							{
+								referenceName = Path.GetFileName(reference);
+							}
+							references.Add(referenceName);
 						}
 					}
-					nonSystemReferences = references;
 				}
-				return nonSystemReferences;
+				return references;
 			}
 		}
-		List<string> nonSystemReferences;
-
-		bool IsSystemReference(string reference)
-		{
-			return systemAssemblyPrefixes.Any(systemRef => reference.StartsWith(systemRef, StringComparison.OrdinalIgnoreCase));
-		}
+		List<string> references;
 	}
 }
