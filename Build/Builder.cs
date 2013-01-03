@@ -191,7 +191,7 @@ namespace Build
 			}
 			else
 			{
-				Console.WriteLine("Process completed.");
+				Console.WriteLine("Build completed.");
 				if (builtProjects.Count > 0 && failedProjects.Count > 0)
 				{
 					Console.WriteLine();
@@ -210,11 +210,15 @@ namespace Build
 
 		internal void RunTests()
 		{
-			Console.WriteLine("Running tests...");
+			Console.WriteLine("\r\nRunning tests...\r\n");
 			var projectOutputPaths = string.Join(" ", allProjects.Select(p => string.Format("/testcontainer:\"{0}\"", p.OutputAssemblyPath)));
-
-			var result = RunAndReturnStdOut(MSTestPath, projectOutputPaths);
-			Console.WriteLine(result);
+			var process = Process.Start(new ProcessStartInfo
+			{
+				FileName = MSTestPath,
+				Arguments = projectOutputPaths,
+				UseShellExecute = false,
+			});
+			process.WaitForExit();
 		}
 	}
 }
