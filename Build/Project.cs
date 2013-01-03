@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 using System.Diagnostics;
+using System.Xml.Linq;
 
 namespace Build
 {
@@ -13,75 +14,52 @@ namespace Build
 		public Project(string projectFilePath)
 		{
 			this.projectFilePath = projectFilePath;
+			this.projectFile = XDocument.Parse(File.ReadAllText(projectFilePath));
 		}
 
-		readonly string projectFilePath;
-		const string assemblyNameIdentifierInProjectFile = "<AssemblyName>";
-		const string assemblyReferencePrefixInProjectFile = "Reference Include=\"";
+		readonly XDocument projectFile;
 
-		public string BuildAndReturnStdOut(string msBuildPath)
+		public string ProjectFilePath
 		{
-			Console.WriteLine("Building project {0}", AssemblyName);
-
-			var process = new Process();
-			process.StartInfo = new ProcessStartInfo(msBuildPath, projectFilePath);
-			process.StartInfo.CreateNoWindow = false;
-			process.StartInfo.UseShellExecute = false;
-			process.StartInfo.RedirectStandardOutput = true;
-			process.Start();
-			process.WaitForExit(10000); // hack to get around issue with process not returning exit code correctly sometimes
-			return process.StandardOutput.ReadToEnd();
+			get { return projectFilePath; }
 		}
+		readonly string projectFilePath;
 
 		internal string AssemblyName
 		{
-			get { return assemblyName ?? (assemblyName = BuildAssemblyName()); }
+			get { return assemblyName ?? (assemblyName = projectFile.Descendants(XName.Get("AssemblyName", xmlns)).First().Value); }
 		}
 		string assemblyName;
-		
-		string BuildAssemblyName()
-		{
-			var projectFileContents = File.ReadAllLines(projectFilePath);
-			string assemblyNameLine = projectFileContents.First(line => line.Contains(assemblyNameIdentifierInProjectFile));
-			int indexOfAssemblyName = assemblyNameLine.IndexOf(assemblyNameIdentifierInProjectFile) + assemblyNameIdentifierInProjectFile.Length;
-			int indexOfEndAssembly = assemblyNameLine.IndexOf('<', indexOfAssemblyName);
 
-			return assemblyNameLine.Substring(indexOfAssemblyName, indexOfEndAssembly - indexOfAssemblyName);
+		internal string OutputAssemblyPath
+		{
+			get { return outputAssemblyPath ?? (outputAssemblyPath = BuildOutputAssemblyPath()); }
+		}
+		string outputAssemblyPath;
+
+		string BuildOutputAssemblyPath()
+		{
+			var assemblyPath = Path.Combine(Path.GetDirectoryName(this.projectFilePath), OutputPath, AssemblyName);
+			var extension = IsLibrary ? ".dll" : ".exe";
+			return assemblyPath + extension;
 		}
 
-		internal List<string> References
+		bool IsLibrary
 		{
-			get
-			{
-				if (references == null)
-				{
-					references = new List<string>();
-					string[] fileContents = File.ReadAllLines(projectFilePath);
-					foreach (string line in fileContents)
-					{
-						int indexOfReferencePrefix = line.IndexOf(assemblyReferencePrefixInProjectFile, StringComparison.OrdinalIgnoreCase);
-						if (indexOfReferencePrefix >= 0)
-						{
-							int indexOfReference = indexOfReferencePrefix + assemblyReferencePrefixInProjectFile.Length;
-							string lineStartingAtReference = line.Substring(indexOfReference);
-							string reference = lineStartingAtReference.Split(',', '\"')[0];
-
-							string referenceName;
-							if (Path.GetExtension(reference) == ".csproj")
-							{
-								referenceName = Path.GetFileNameWithoutExtension(reference);
-							}
-							else
-							{
-								referenceName = Path.GetFileName(reference);
-							}
-							references.Add(referenceName);
-						}
-					}
-				}
-				return references;
-			}
+			get { return projectFile.Descendants(XName.Get("OutputType", xmlns)).First().Value == "Library"; }
 		}
-		List<string> references;
+
+		string OutputPath
+		{
+			get { return projectFile.Descendants(XName.Get("OutputPath", xmlns)).First().Value; }
+		}
+
+		internal IEnumerable<string> References
+		{
+			get { return references ?? (references = projectFile.Descendants(XName.Get("Reference", xmlns)).SelectMany(e => e.Attributes("Include")).Select(a => a.Value).ToArray()); }
+		}
+		IEnumerable<string> references;
+
+		const string xmlns = "http://schemas.microsoft.com/developer/msbuild/2003";
 	}
 }

@@ -13,7 +13,8 @@ namespace Build
 			string filePath = args.Length > 0 ? args[0] : GetFilePathFromConsole();
 			if (Directory.Exists(filePath))
 			{
-				new Builder().Build(filePath);
+				var builder = new Builder();
+				builder.Build(filePath, args.Contains("-t"));
 			}
 			else
 			{

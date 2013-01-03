@@ -18,7 +18,7 @@ namespace Build
 			DeleteExistingLog();
 		}
 
-		internal void Build(string projectPath)
+		internal void Build(string projectPath, bool runTests = false)
 		{
 			var targetProjectFiles = GetProjectFiles(projectPath);
 
@@ -32,7 +32,7 @@ namespace Build
 				try
 				{
 					var project = GetNextProjectToBuild();
-					string buildResult = project.BuildAndReturnStdOut(MSBuildPath);
+					string buildResult = BuildAndReturnStdOut(project);
 
 					string assemblyName = project.AssemblyName;
 					if (DetermineSuccessFromBuildStdOut(buildResult))
@@ -55,11 +55,34 @@ namespace Build
 			}
 
 			DisplayOutcome(builtAssemblies, failedAssemblies);
+
+			if (runTests)
+			{
+				RunTests();
+			}
 #if DEBUG
 			Console.WriteLine();
 			Console.Write("Press any key to exit...");
 			Console.ReadLine();
 #endif
+		}
+
+		string BuildAndReturnStdOut(Project project)
+		{
+			Console.WriteLine("Building project {0}", project.AssemblyName);
+			return RunAndReturnStdOut(MSBuildPath, project.ProjectFilePath);
+		}
+
+		string RunAndReturnStdOut(string path, string args)
+		{
+			var process = new Process();
+			process.StartInfo = new ProcessStartInfo(path, args);
+			process.StartInfo.CreateNoWindow = false;
+			process.StartInfo.UseShellExecute = false;
+			process.StartInfo.RedirectStandardOutput = true;
+			process.Start();
+			process.WaitForExit(10000); // hack to get around issue with process not returning exit code correctly sometimes
+			return process.StandardOutput.ReadToEnd();
 		}
 
 		bool DetermineSuccessFromBuildStdOut(string stdout)
@@ -95,7 +118,7 @@ namespace Build
 			return false;
 		}
 
-		void DeleteExistingLog()
+		static void DeleteExistingLog()
 		{
 			if (File.Exists(logFilePath))
 			{
@@ -105,37 +128,42 @@ namespace Build
 
 		const string logFilePath = "buildFailure.log";
 
-		void Log(string contents)
+		static void Log(string contents)
 		{
 			var logDetails = string.Format(@"**************************************{0}Build.exe Failure Log{0}{1}{0}**************************************{0}{2}{0}**************************************{0}",
 				Environment.NewLine, DateTime.Now.ToString(), contents);
 			File.AppendAllText(logFilePath, logDetails);
 		}
 
-		string MSBuildPath
+		static string MSBuildPath
 		{
 			get
 			{
-				if (fMSBuildPath == null)
+				if (msBuildPath == null)
 				{
 					string[] dotNetFrameworkDirectories = Directory.GetDirectories(@"C:\Windows\Microsoft.NET\Framework");
 					string dotNet4Directory = dotNetFrameworkDirectories.FirstOrDefault(path => path.Contains("v4.0"));
 					string msbuildPath = Path.Combine(dotNet4Directory, "MSBuild.exe");
 					if (File.Exists(msbuildPath))
 					{
-						fMSBuildPath = msbuildPath;
+						msBuildPath = msbuildPath;
 					}
 					else
 					{
 						throw new FileNotFoundException("MSBuild.exe not found", msbuildPath);
 					}
 				}
-				return fMSBuildPath;
+				return msBuildPath;
 			}
 		}
-		string fMSBuildPath;
+		static string msBuildPath;
 
-		string[] GetProjectFiles(string projectPath)
+		static string MSTestPath
+		{
+			get { return @"C:\Program Files (x86)\Microsoft Visual Studio 11.0\Common7\IDE\MSTest.exe"; }
+		}
+
+		static string[] GetProjectFiles(string projectPath)
 		{
 			string[] projectFiles = Directory.GetFiles(projectPath, "*.csproj", SearchOption.AllDirectories);
 			if (projectFiles.Length > 0)
@@ -155,7 +183,7 @@ namespace Build
 					.All(reference => builtAssemblies.Contains(reference) || !allProjects.Any(p => p.AssemblyName == reference)));
 		}
 
-		void DisplayOutcome(List<string> builtProjects, List<string> failedProjects)
+		static void DisplayOutcome(List<string> builtProjects, List<string> failedProjects)
 		{
 			if (builtProjects.Count == 0 && failedProjects.Count == 0)
 			{
@@ -178,6 +206,15 @@ namespace Build
 					failedProjects.ForEach(project => Console.WriteLine("\t{0}", project));
 				}
 			}
+		}
+
+		internal void RunTests()
+		{
+			Console.WriteLine("Running tests...");
+			var projectOutputPaths = string.Join(" ", allProjects.Select(p => string.Format("/testcontainer:\"{0}\"", p.OutputAssemblyPath)));
+
+			var result = RunAndReturnStdOut(MSTestPath, projectOutputPaths);
+			Console.WriteLine(result);
 		}
 	}
 }
